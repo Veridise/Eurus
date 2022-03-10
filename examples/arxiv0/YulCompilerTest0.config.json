@@ -1,0 +1,16 @@
+{
+    "call_code_to_function_name": {
+        "0x54f363a3": "addition",
+        "0xb8e983f8": "var0"
+    },
+    "call_code_to_function_signature": {
+        "0x54f363a3": [
+            "addition",
+            "uint256",
+            "uint256"
+        ],
+        "0xb8e983f8": [
+            "var0"
+        ]
+    }
+}
