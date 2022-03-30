@@ -88,6 +88,7 @@ It will automatically outputs `filename.json` and `filename.config.json` in the 
 
 ## Known Issues & TODOs
 
-- ▢ Replace `destruct` back to `match` with corresponding lifting to have better control of symbolic states.
+- ▢ The `zhash` has a bug when setting a `constant` as a key. See the lifting strategies in the notes for more details. A solution is provided and should be propagated to the `zhash` implementation. But practically, keys to `zhash` can only be those symbolic values that are decomposible to concrete values. In other words, e.g., `constant` can not be a key.
+- ✓ Replace `destruct` back to `match` with corresponding lifting to have better control of symbolic states.
 - ✓ Replace all `match` with `destruct`; before doing this, a Yul json should be parsed into structs, not pure lists.
 

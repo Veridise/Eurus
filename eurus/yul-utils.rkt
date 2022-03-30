@@ -1,6 +1,7 @@
 #lang rosette
 ; required by `bitvector-split` since the two methods are not provided by default rosette
-(require (only-in rosette/base/core/bitvector bv-type bv-value))
+; (require (only-in rosette/base/core/bitvector bv-type))
+(require (only-in rosette/base/core/type get-type))
 (require "./yul-config.rkt")
 (require "./yul-components.rkt")
 (provide (all-defined-out))
@@ -10,6 +11,26 @@
     (printf "~a\n" msg)
     (exit 0)
 )
+
+; usually for debugging, asserting obj is one of types, otherwise print and exit
+; typs is a list of type predicates
+(define (check-type-helper obj typs)
+    (if (null? typs)
+        #f
+        (if ((car typs) obj)
+            #t
+            (check-type-helper obj (cdr typs))
+        )
+    )
+)
+(define (check-type obj . typs)
+    (if (check-type-helper obj typs)
+        #t
+        (println-and-exit (format "# [exception]: type checking failed, required types are: ~a, obj is: ~v" typs obj))
+    )
+)
+
+
 
 ; return the root path of the project
 (define (root-path)
@@ -22,20 +43,11 @@
     )
 )
 
-; append an element to the end of a list
-(define (rcons e l) (reverse (cons e (reverse l))))
-
-; get struct type of an instance
-(define (struct-type e)
-    (let-values ([(t s) (struct-info e)])
-        t
-    )
-)
-
 ; encode every element in the arguments one by one
 ; returns a list of hex strings (no prefix)
-; (fixme) currently we use external wrapper of keccak256 function
-;         but eventually we may need a built-in and (potentially) lifted version in rosette
+; (note) currently we use external wrapper of keccak256 function
+;        this method is NOT lifted, so it can only be used in non-symbolic context, e.g., manual calldata construction
+; (note) if you want to compute hashing in actual symbolic execution, use the lifted version of sha3
 (define (keccak256 . l)
     (define rp (root-path))
     (define q (path->string (build-path rp "utils" "keccak256.py")))
@@ -58,16 +70,109 @@
     )
 )
 
+; =================================================== ;
+; ========== Eurus Lifted Components/Forms ========== ;
+; =================================================== ;
+
+; decide whether the given value can be decomposed by `for/all`
+; (note) decomposible here means whether `for/all` will reveal new values or not, see comments for more details
+(define (decomposible? v)
+    (if (symbolic? v)
+        ; symbolic
+        (cond 
+            ; a union is decomposible
+            [(union? v) #t]
+
+            ; symbolic constant is not decomposible
+            [(constant? v) #f]
+
+            ; for expression, it could be `ite` or other forms (e.g., +/-)
+            ; we use reflecting provided publicly by rosette rather than hacking
+            [(expression? v)
+                (match v
+                    ; (fixme) there are more builtin rosette operators that you need to consider
+                    ;         e.g., bitvector->integer
+                    [(expression op child ...) (or
+                        (equal? 'ite* (object-name op))
+                        (equal? 'ite (object-name op))
+                    )]
+                    [_ (println-and-exit "# [exception] you can't reach here.")] ; for debugging in case anyone overrides `expression`
+                )
+            ]
+
+            ; (note) (important) this category usually corresponds to a collection that contains symbolic values
+            ;                    note that `symbolic?` is contagious, it mark a value as symbolic as long as any
+            ;                    of its member is symbolic
+            ; e.g., a struct instance with a symbolic member belongs to this category, and regarding decomposibility,
+            ; since it's for deciding whether one should use `for/all` (and whether new values will be revealed under `for/all`),
+            ; this category does not require decomposing because `for/all` reveals no new values
+            [else #f]
+        )
+        ; not symbolic, so not decomposible
+        #f
+    )
+)
+
+; (note) this can automatically lift procedures with non-collection arguments
+;        (to be more specific, procedures that modify elements in collection arguments are not supported)
+;        collections are not solvable types, e.g., list, struct instance, etc.
+;        for procedures with collection types, you need to manually lift them
+(define (eurus-lift0 proc)
+    ; args0: clear non-symbolic, args1: not clear
+    (define (rec-proc args0 args1)
+        (if (null? args1)
+            ; all clear
+            ; (note) since using `cons`, we need to reverse the list
+            (apply proc (reverse args0))
+            ; not clear
+            (let ([a (car args1)])
+                (if (decomposible? a)
+                    ; decomposible
+                    (begin
+                        (for/all ([a0 a #:exhaustive]) (rec-proc (cons a0 args0) (cdr args1)))
+                    )
+                    ; not decomposible, move on to next argument
+                    (rec-proc (cons a args0) (cdr args1))
+                )
+            )
+        )
+    )
+    (define (new-proc . new-args) (rec-proc (list ) new-args))
+    new-proc
+)
+
+; append an element to the end of a list
+(define (rcons e l) (reverse (cons e (reverse l))))
+; (eurus lifted)
+(define ^rcons (eurus-lift0 rcons))
+
 ; test whether a is divisible by b
 (define (divisible? a b) (zero? (modulo a b)))
+; (eurus lifted)
+(define ^divisible (eurus-lift0 divisible?))
+
+; get struct type of an instance
+; (note) a `union` is also a struct, so we need to lift it to inspect structs inside the union
+;        the original `struct-info` is by design not "lifted" because it can't ignore the `union` type
+(define (struct-type e) (let-values ([(t s) (struct-info e)]) t))
+; (eurus lifted)
+(define ^struct-type (eurus-lift0 struct-type))
+
+; get the number of bits for a given bv
+; (note) get-type is not provided by rosette by default
+(define (bv-size b) (bitvector-size (get-type b)))
+; (eurus lifted)
+(define ^bv-size (eurus-lift0 bv-size))
 
 ; split the given bitvector `b` into a list of `n`-bit bitvectors
 ; this will throw exception if number of bits in b is not divisible by n
 ; e.g.:
 ;   (bv #x025fd3dd 32) --split by 8--> (list (bv #x02 8) (bv #x5f 8) (bv #xd3 8) (bv #xdd 8))
 (define (bitvector-split b n)
-    (define nbits (bitvector-size (bv-type b)))
+    (define nbits (bv-size b))
+    ; (fixme) change this to false assertion when debugging is done
     (when (not (divisible? nbits n)) (println-and-exit (format "# [exception] bitvector size is not divisible by target size, got ~a and ~a." nbits n)))
+    ; (when (not (divisible? nbits n)) (assert #f)) ; cut this path
     ; divisible here, move on to extract a list of nbit bvs
     (define nchks (quotient nbits n))
     (define bvlist (for/list ([i nchks])
@@ -78,8 +183,10 @@
     ; just return
     (reverse bvlist)
 )
+; (eurus lifted)
+(define ^bitvector-split (eurus-lift0 bitvector-split))
 
-; (todo)
+; used for manual construction of calldata for both debugging and synthesis problem setting
 (define (construct-calldata fsig args)
     ; construct the function selector
     (define fsig-num (string->number (substring (keccak256 fsig) 0 8) 16))
@@ -105,45 +212,4 @@
     ; then concatenate them and return
     (append fsig-mem args-mem)
 )
-
-; (fixme)(debug)
-(define (bitvector-split-256 b n)
-    (define nbits 256)
-    (when (not (divisible? nbits n)) (println-and-exit (format "# [exception] bitvector size is not divisible by target size, got ~a and ~a." nbits n)))
-    ; divisible here, move on to extract a list of nbit bvs
-    (define nchks (quotient nbits n))
-    (define bvlist (for/list ([i nchks])
-        (let ([st (* i n)])
-            (extract (+ st (- n 1)) st b)
-        )
-    ))
-    ; just return
-    (reverse bvlist)
-)
-
-; (fixme)(debug)
-(define (construct-calldata-256 fsig args)
-    ; construct the function selector
-    (define fsig-num (string->number (substring (keccak256 fsig) 0 8) 16))
-    (define fsig-bv (bv fsig-num 32)) ; function selector takes up 4 bytes, which is 32 bits
-    ; construct a list of bvs
-    (define args-bvlist (for/list ([p args])
-        (let ([tmp-type (car p)] [tmp-val (cdr p)])
-            (cond
-                [(equal? "uint256" tmp-type) tmp-val]
-                [(equal? "address" tmp-type) tmp-val]
-                [(equal? "bool" tmp-type) tmp-val]
-                [else (println-and-exit "# [exception] unsupported type for calldata construction, got: ~a." tmp-type)]
-            )
-        )
-    ))
-    ; tear all apart into a mini memory structure with 1 byte (8 bits) per memory location
-    (define fsig-mem (bitvector-split fsig-bv 8))
-    (define args-mem (flatten
-        (for/list ([p args-bvlist])
-            (bitvector-split-256 p 8)
-        )
-    ))
-    ; then concatenate them and return
-    (append fsig-mem args-mem)
-)
+(define ^construct-calldata (eurus-lift0 construct-calldata))

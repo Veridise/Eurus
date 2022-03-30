@@ -2,7 +2,33 @@
 
 This collects helpful design notes for the system.
 
-## Solidity/Yul Notes
+## Solidity/Yul/Rosette Detailed Implementation Notes
+
+#### General Lifting Principles
+
+- Only `do-interpret`, `call`, `do-user-call` and `do-builtin-call` contain codes for lifting.
+  - Also `call-args-extraction` contains codes for lifting, which is a helper function for `*-call` series.
+  - Also `builtin-function-book`.
+- **Whoever processes a data structure lifts it.** That is, if you don't have to process a symbolic/decomposible data structure (say, you just pass it to another function), you don't have to lift it on your level. Just leave it to the function that actually processes it.
+- **Whoever defines checks.**
+  - `let`: usually check
+  - `for/all`, `for*/all`: always check
+  - `define`: usually check
+    - after a variable declaration
+    - inside a function definition
+  - `match`: usually check
+  - `cond`-`decomposible?`: always check
+
+#### Notes for Lifting
+
+- The `for/all` with `#:exhaustive` flag still ***cannot*** decompose a struct instance with symbolic member recursively.
+- `symbolic?` is contagious: a concrete struct instance that has any symbolic member will be marked `#t` by the `symbolic?` procedure.
+- Wrapping `for/all` on a `constant` symbolic value and `term`s with basic arithmetic operations rather than `ite` / `ite*` in a recursive call for lifting will result in infinite recursive ccalls, because nothing is to be decomposed.
+- Eurus has a `decomposible?` method to guide whether a `for/all` should be wrapped on a symbolic value or not. The `decomposible?` method is only for stopping recursive call.
+- Rosette overrides some of racket's original forms by throwing assertion error rather than contract violation when argument types don't match. For example, `+` throws assertion error in rosette, but throws contract violation in racket.
+
+  - See the `tests/test-autolift.rkt` for some details.
+
 
 #### Memory
 
@@ -30,7 +56,7 @@ Solidity uses only 4 bytes for hashing the function signature, even though `kecc
 
 See an example: [https://ethereum.stackexchange.com/questions/52989/what-is-calldata](https://ethereum.stackexchange.com/questions/52989/what-is-calldata)
 
-####Yul Constructor Argument Rewrite
+#### Yul Constructor Argument Rewrite
 
 See `utils/yul_translator.py: _t_rewrite_constructor_arguments`.
 
@@ -66,6 +92,7 @@ function copy_arguments_for_constructor_23_object_Client_42() -> ret_param_0 {
 
 - Racket Byte Strings: [https://docs.racket-lang.org/reference/bytestrings.html](https://docs.racket-lang.org/reference/bytestrings.html)
 - Converting Values to Strings: [https://docs.racket-lang.org/reference/strings.html#%28part._format%29](https://docs.racket-lang.org/reference/strings.html#%28part._format%29)
+- macros: [https://www.greghendershott.com/fear-of-macros/all.html](https://www.greghendershott.com/fear-of-macros/all.html)
 
 ## Solidity/Yul Resources
 

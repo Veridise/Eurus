@@ -105,20 +105,22 @@
 ; set up symbolic variables and problem
 (printf "# [admin] set up symbolic variables and problem\n")
 (define yul-builtin-function-book (get-field yul-builtin-function-book token-vm)) ; get the function book first
-(hash-set! yul-builtin-function-book "revert" (lambda (cp x y) (assert #f) (ret 'revert (list )))) ; hijack to assert #f
+(send lender-vm update-yul-builtin-function-book "revert" (lambda (cp x y) (assert #f) (ret 'revert (list )))) ; hijack to assert #f
+(send token-vm update-yul-builtin-function-book "revert" (lambda (cp x y) (assert #f) (ret 'revert (list )))) ; hijack to assert #f
 
-(define-symbolic x0 config:vm-default-bitvector)
-(assert (bvsgt x0 (bv 0 config:vm-default-bitvector)))
+(define-symbolic x0 integer?)
+; (define x0 1)
+(assert (> x0 0))
 (define cp-x0 (let (
   [gas 0] [wei 0]
-  [cd (construct-calldata-256 "transfer(address,uint256)" (list (cons "address" (bv lender-contract-addr config:vm-default-bitvector)) (cons "uint256" x0)))])
+  [cd (construct-calldata "transfer(address,uint256)" (list (cons "address" lender-contract-addr) (cons "uint256" x0)))])
   (callpack receiver-contract-addr gas wei cd))) ; construct callpack
 (define ret-x0 (send token-vm dispatch cp-x0)) ; call method and get result
 ; set up constraint callback: override `revert` to set constraint solving flags
 (printf "# [admin] set up constraint callback\n")
 
 (define exploited #f)
-(hash-set! yul-builtin-function-book "revert" (lambda (cp x y) (set! exploited #t))) ; hijack to set exploit flag
+(send lender-vm update-yul-builtin-function-book "revert" (lambda (cp x y) (set! exploited #t) (ret 'revert (list )))) ; hijack to set exploit flag
 
 ; ===========================================================
 ; verification procedure after candidate exploit is performed
