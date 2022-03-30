@@ -1,4 +1,4 @@
-# Eurus - Solver-Aided YUL Virtual Machine
+# Eurus - Precise Attack Synthesis for DeFi Apps
 Eurus is an edge version of [Venti@965703b](https://github.com/chyanju/Venti/tree/965703b370de796abd127be2a4c2cb5533eac296), specialized for DeFi applications.
 
 ## Pre-Requisites
