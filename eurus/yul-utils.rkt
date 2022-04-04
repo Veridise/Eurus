@@ -113,56 +113,20 @@
     )
 )
 
-; (note) this can automatically lift procedures with non-collection arguments
-;        (to be more specific, procedures that modify elements in collection arguments are not supported)
-;        collections are not solvable types, e.g., list, struct instance, etc.
-;        for procedures with collection types, you need to manually lift them
-(define (eurus-lift0 proc)
-    ; args0: clear non-symbolic, args1: not clear
-    (define (rec-proc args0 args1)
-        (if (null? args1)
-            ; all clear
-            ; (note) since using `cons`, we need to reverse the list
-            (apply proc (reverse args0))
-            ; not clear
-            (let ([a (car args1)])
-                (if (decomposible? a)
-                    ; decomposible
-                    (begin
-                        (for/all ([a0 a #:exhaustive]) (rec-proc (cons a0 args0) (cdr args1)))
-                    )
-                    ; not decomposible, move on to next argument
-                    (rec-proc (cons a args0) (cdr args1))
-                )
-            )
-        )
-    )
-    (define (new-proc . new-args) (rec-proc (list ) new-args))
-    new-proc
-)
-
 ; append an element to the end of a list
 (define (rcons e l) (reverse (cons e (reverse l))))
-; (eurus lifted)
-(define ^rcons (eurus-lift0 rcons))
 
 ; test whether a is divisible by b
 (define (divisible? a b) (zero? (modulo a b)))
-; (eurus lifted)
-(define ^divisible (eurus-lift0 divisible?))
 
 ; get struct type of an instance
 ; (note) a `union` is also a struct, so we need to lift it to inspect structs inside the union
 ;        the original `struct-info` is by design not "lifted" because it can't ignore the `union` type
 (define (struct-type e) (let-values ([(t s) (struct-info e)]) t))
-; (eurus lifted)
-(define ^struct-type (eurus-lift0 struct-type))
 
 ; get the number of bits for a given bv
 ; (note) get-type is not provided by rosette by default
 (define (bv-size b) (bitvector-size (get-type b)))
-; (eurus lifted)
-(define ^bv-size (eurus-lift0 bv-size))
 
 ; split the given bitvector `b` into a list of `n`-bit bitvectors
 ; this will throw exception if number of bits in b is not divisible by n
@@ -183,8 +147,6 @@
     ; just return
     (reverse bvlist)
 )
-; (eurus lifted)
-(define ^bitvector-split (eurus-lift0 bitvector-split))
 
 ; used for manual construction of calldata for both debugging and synthesis problem setting
 (define (construct-calldata fsig args)
@@ -212,4 +174,3 @@
     ; then concatenate them and return
     (append fsig-mem args-mem)
 )
-(define ^construct-calldata (eurus-lift0 construct-calldata))

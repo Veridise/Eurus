@@ -68,7 +68,7 @@
             (do-deploy arg-node #:arg-param (copy-param arg-param #:code-scope 'start))
         )
         (define/public (do-deploy arg-node #:arg-param [arg-param (default-param)])
-            (match arg-node
+            (destruct arg-node
                 ; top-level entrance
                 [(yul:start m-object) 
                     ; explicitly changing the code scope to 'constructor
@@ -117,7 +117,7 @@
                 [(yul:block m-statements) (for ([m m-statements]) (do-deploy m #:arg-param (copy-param arg-param)))]
 
                 [(yul:statement m)
-                    (match m
+                    (destruct m
                         [(yul:fundef m-id m-args m-rets m-block)
                             ; add the function node into corresponding components (constructor or dispatcher)
                             (let ([v (yul:id-res m-id)])
@@ -1000,6 +1000,14 @@
             (hash-set! yul-builtin-function-book "sub" (lambda (cp x y) (ret 'normal (list 
                 (for*/all ([x0 x #:exhaustive] [y0 y #:exhaustive]) (bvsub x0 y0))
             ))))
+            (hash-set! yul-builtin-function-book "mul" (lambda (cp x y) (ret 'normal (list 
+                (for*/all ([x0 x #:exhaustive] [y0 y #:exhaustive]) (bvmul x0 y0))
+            ))))
+            (hash-set! yul-builtin-function-book "div" (lambda (cp x y) (ret 'normal (list 
+                (for*/all ([x0 x #:exhaustive] [y0 y #:exhaustive]) 
+                    (if (bvzero? y0) (bv 0 yul-default-bitvector) (bvudiv x0 y0))
+                )
+            ))))
             (hash-set! yul-builtin-function-book "and" (lambda (cp x y) (ret 'normal (list 
                 (for*/all ([x0 x #:exhaustive] [y0 y #:exhaustive]) (bvand x0 y0))
             ))))
@@ -1066,7 +1074,11 @@
                     (let ([p1 (bitvector->integer p0)] [n1 (bitvector->integer n0)])
                         ; first read mem[p...(p+n))
                         (define l0 (for/list ([i (range p1 (+ p1 n1))])
-                            (bitvector->integer (zhash-ref memory-book i))
+                            ; (bitvector->integer (zhash-ref memory-book i))
+                            ; (fixme) bytes can't accept negative integers, so we are converting it to natural here
+                            ;         since this keccak is used for consistent addressing and there's no groundtruth
+                            ;         required, so this should be fine
+                            (bitvector->natural (zhash-ref memory-book i))
                         ))
                         ; then convert to bytes
                         (define b0 (apply bytes l0))
@@ -1158,6 +1170,7 @@
                 )
             ))))
 
+            ; (fixme) need to lift
             (hash-set! yul-builtin-function-book "call" (lambda (cp g a v in insize out outsize) (ret 'normal (list
                 (let ([g0 (bitvector->integer g)] [a0 (bitvector->integer a)] [v0 (bitvector->integer v)]
                       [in0 (bitvector->integer in)] [insize0 (bitvector->integer insize)]
@@ -1187,6 +1200,7 @@
 
             ; (fixme) basically same to call, but with some difference that should be further fixed
             ;         no v (wei) is passed
+            ; (fixme) need to lift
             (hash-set! yul-builtin-function-book "staticcall" (lambda (cp g a in insize out outsize) (ret 'normal (list
                 (let ([g0 (bitvector->integer g)] [a0 (bitvector->integer a)] [v0 0]
                       [in0 (bitvector->integer in)] [insize0 (bitvector->integer insize)]

@@ -85,7 +85,32 @@ class YulTranslator:
             new_str1
         )
 
-        return new_str2
+        pattern3 = re.compile(
+            r"codecopy\((.*), dataoffset\(\"(.*)\"\), datasize\(\"(.*)\"\)\)" + r"([ \n]*)" +\
+            r"return\((.*), datasize\(\"(.*)\"\)\)" + r"([ \n]*)", re.MULTILINE)
+        new_str3 = pattern3.sub(
+            "// adapted by Eurus: remove_post_constructor_datacall" + r"\4" +\
+            "// codecopy(" + r"\1" + ", dataoffset(\"" + r"\2" + "\"), datasize(\"" + r"\3" + "\"))" + r"\4" +\
+            "// return(" + r"\5" + ", datasize(\"" + r"\6" + "\"))" + r"\7",
+            new_str2
+        )
+
+        # (fixme) I just removed the "mload" matching, but this could generalize to everywhere
+        pattern4 = re.compile(
+            r"codecopy\((.*), dataoffset\(\"(.*)\"\), datasize\(\"(.*)\"\)\)" + r"([ \n]*)" +\
+            r"setimmutable\((.*), \"(.*)\", (.*)\)" + r"([ \n]*)" +\
+            r"setimmutable\((.*), \"(.*)\", (.*)\)" + r"([ \n]*)" +\
+            r"return\((.*), datasize\(\"(.*)\"\)\)" + r"([ \n]*)", re.MULTILINE)
+        new_str4 = pattern4.sub(
+            "// adapted by Eurus: remove_post_constructor_datacall" + r"\4" +\
+            "// codecopy(" + r"\1" + ", dataoffset(\"" + r"\2" + "\"), datasize(\"" + r"\3" + "\"))" + r"\4" +\
+            "// setimmutable(" + r"\5" + ", \"" + r"\6" + "\", " + r"\7" + ")" + r"\4" +\
+            "// setimmutable(" + r"\9" + ", \"" + r"\10" + "\", " + r"\11" + ")" + r"\12" +\
+            "// return(" + r"\13" + ", datasize(\"" + r"\14" + "\"))" + r"\15",
+            new_str3
+        )
+
+        return new_str4
 
 
 ap = argparse.ArgumentParser()

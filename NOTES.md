@@ -89,10 +89,10 @@ function copy_arguments_for_constructor_23_object_Client_42() -> ret_param_0 {
 ## Racket Resources
 
 - Racket Cheat Sheet: [https://docs.racket-lang.org/racket-cheat/index.html](https://docs.racket-lang.org/racket-cheat/index.html)
-
 - Racket Byte Strings: [https://docs.racket-lang.org/reference/bytestrings.html](https://docs.racket-lang.org/reference/bytestrings.html)
 - Converting Values to Strings: [https://docs.racket-lang.org/reference/strings.html#%28part._format%29](https://docs.racket-lang.org/reference/strings.html#%28part._format%29)
 - macros: [https://www.greghendershott.com/fear-of-macros/all.html](https://www.greghendershott.com/fear-of-macros/all.html)
+- Print more untruncated error info: `(error-print-width 1000000)`
 
 ## Solidity/Yul Resources
 

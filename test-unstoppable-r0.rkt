@@ -111,14 +111,27 @@
 (define-symbolic x0 integer?)
 ; (define x0 1)
 (assert (> x0 0))
-(define cp-x0 (let (
+(define cp-x0-b0 (let (
   [gas 0] [wei 0]
   [cd (construct-calldata "transfer(address,uint256)" (list (cons "address" lender-contract-addr) (cons "uint256" x0)))])
   (callpack receiver-contract-addr gas wei cd))) ; construct callpack
-(define ret-x0 (send token-vm dispatch cp-x0)) ; call method and get result
+(define cp-x0-b1 (let (
+  [gas 0] [wei 0]
+  [cd (construct-calldata "balanceOf(address)" (list (cons "address" lender-contract-addr) ))])
+  (callpack receiver-contract-addr gas wei cd))) ; construct callpack
+
+(define attack-candidate-components (list
+  (lambda () (send token-vm dispatch cp-x0-b0))
+  (lambda () (send token-vm dispatch cp-x0-b1))
+))
+(define-symbolic attack-ptr0 integer?)
+(define attack-step0 (list-ref attack-candidate-components attack-ptr0))
+
+(printf "# [receiver/attacker] execute symbolic attacks\n")
+(define attack-return-step0 (attack-step0)) ; execute
+
 ; set up constraint callback: override `revert` to set constraint solving flags
 (printf "# [admin] set up constraint callback\n")
-
 (define exploited #f)
 (send lender-vm update-yul-builtin-function-book "revert" (lambda (cp x y) (set! exploited #t) (ret 'revert (list )))) ; hijack to set exploit flag
 
@@ -126,7 +139,7 @@
 ; verification procedure after candidate exploit is performed
 ; ===========================================================
 ; call flashLoan, and if the exploit is successful, this would throw an exception
-(printf "# [receiver] call flashLoan\n")
+(printf "# [receiver] attack result verification: call flashLoan\n")
 (define cp100 (let (
   [gas 0] [wei 0]
   [cd (construct-calldata "flashLoan(uint256)" (list (cons "uint256" 99)))])

@@ -29,6 +29,15 @@
                 (parse-yul-json (list-ref arg-node 3))
             )
         ]
+        [(list "yul_object" m-string-literal m-code)
+            ; alternative dispatcher object
+            ; no data field there
+            (yul:dobj
+                (parse-yul-json m-string-literal)
+                (parse-yul-json m-code)
+                null
+            )
+        ]
 
         [(list "yul_data" m0 m1)
             (yul:data
