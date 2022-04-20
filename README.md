@@ -1,112 +1,82 @@
 # Eurus - Precise Attack Synthesis for DeFi Apps
-Eurus is an edge version of [Venti@965703b](https://github.com/chyanju/Venti/tree/965703b370de796abd127be2a4c2cb5533eac296), specialized for DeFi applications.
+Eurus is an open-source general framework for smart contract verification and synthesis. Eurus performs reasoning using a builtin symbolic virtual machine based on the [YUL](https://docs.soliditylang.org/en/latest/yul.html) intermediate language from Solidity.
 
-## Pre-Requisites
+Eurus is still under active development. For development README please see [here](./DEV.md). For development notes and resources please see [here](./NOTES.md).
 
-- pysha3 ([https://github.com/tiran/pysha3](https://github.com/tiran/pysha3))
-  - `pip install pysha3`
-  - This is temporarily required for supporting keccak-256 hashing/computation.
-- racket's `sha` package
-  - `raco pkg install sha`
+# Dependencies
+
+- Python (3.6+)
+  - pysha3: [https://github.com/tiran/pysha3](https://github.com/tiran/pysha3)
+    - `pip install pysha3`
+    - This is temporarily required for supporting keccak-256 hashing/computation.
+
+- Racket (8.0+): [https://racket-lang.org/](https://racket-lang.org/)
+  - Rosette (4.0+): [https://github.com/emina/rosette](https://github.com/emina/rosette)
+    - `raco pkg install rosette`
+  - `sha` package
+    - `raco pkg install sha`
+- Solidity/Solc (0.8.9 recommended): [https://soliditylang.org/](https://soliditylang.org/)
+  - `solc-select` is recommended: [https://github.com/crytic/solc-select](https://github.com/crytic/solc-select)
+
+- Antlr (4.8): https://github.com/antlr/antlr4
+  - Python Targets Setup: https://github.com/antlr/antlr4/blob/master/doc/python-target.md
+  - `pip install antlr4-python3-runtime`
 
 
-## Quick-Start Guides
+# Quick-Start Guides
 
-(coming soon)
+The following shows how you utilize Eurus to automatically synthesize an attack for an adapted DeFi benchmark [Puppet](https://www.damnvulnerabledefi.xyz/v1/challenges/8.html) from [Damn Vulnerable DeFi](https://www.damnvulnerabledefi.xyz/). The benchmark files can be found in `examples/puppet-simplified/`.
 
-## Python Yul Parser
+## Push-Button Quick Run
 
-This parses the Yul source code into json representation, and generates a helper configuration file which includes:
-
-- mapping of call codes and function names (signatures)
+You can directly perform the attack synthesis using the following command since we've already included all the intermediate files in the repo:
 
 ```bash
-usage: yul_parser.py [-h] [--yul YUL] [--verbose VERBOSE]
-
-optional arguments:
-  -h, --help         show this help message and exit
-  --yul YUL          input yul file
-  --verbose VERBOSE  show more info for debugging
+racket ./demo-puppet.rkt
 ```
 
-It will automatically outputs `filename.json` and `filename.config.json` in the same folder.
+As an alternative, you can also directly run the following script for solving the benchmark (given that all dependencies are correctly configured) by regenerating all the intermediate files on your local machine again:
 
-## Useful Commands
+```bash
+./run-demo-puppet.sh
+```
 
-- Automatically generate the core Yul parser:
+The script wraps up all the detailed steps in the following section.
 
-  ```bash
-  cd ./utils
-  antlr4 -Dlanguage=Python3 Yul.g4
-  ```
+It will output the synthesized attack contract. Load it as `contracts/attacker-contracts/PuppetAttacker.sol` in the benchmarking framework (see [here](https://github.com/MrToph/damn-vulnerable-defi)) verify the hack.
 
-- Compile a solidity source code into Yul:
+## Detailed Steps
 
-  ```bash
-  solc ./examples/interface-test/Server.sol --ir --overwrite -o ./examples/interface-test
-  solc ./examples/interface-test/Client.sol --ir --overwrite -o ./examples/interface-test
-  solc ./examples/collection-test/MyMapping1.sol --ir --overwrite -o ./examples/collection-test
-  solc ./examples/require-test/ReqTest1.sol --ir --overwrite -o ./examples/require-test
-  
-  # unstoppable
-  solc ./examples/unstoppable-simplified/ReceiverUnstoppable.sol --ir --overwrite -o ./examples/unstoppable-simplified
-  solc ./examples/unstoppable-simplified/UnstoppableLender.sol --ir --overwrite -o ./examples/unstoppable-simplified
-  solc ./examples/unstoppable-simplified/ERC20.sol --ir --overwrite -o ./examples/unstoppable-simplified
-  
-  # puppet
-  solc ./examples/puppet-simplified/PuppetPool.sol --ir --overwrite -o ./examples/puppet-simplified
-  solc ./examples/puppet-simplified/ERC20.sol --ir --overwrite -o ./examples/puppet-simplified
-  solc ./examples/puppet-simplified/UniswapModel.sol --ir --overwrite -o ./examples/puppet-simplified
-  ```
+We show detailed steps and procedures for attacking on the example DeFi app.
 
-- Translate original Yul to Eurus Yul:
+First use `solc` to compile all contracts in the benchmarks into their YUL representations:
 
-  ```bash
-  python ./utils/yul_translator.py --yul ./examples/interface-test/Server.yul
-  python ./utils/yul_translator.py --yul ./examples/interface-test/Client.yul
-  python ./utils/yul_translator.py --yul ./examples/collection-test/MyMapping1.yul
-  python ./utils/yul_translator.py --yul ./examples/require-test/ReqTest1.yul
-  
-  # unstoppable
-  python ./utils/yul_translator.py --yul ./examples/unstoppable-simplified/ReceiverUnstoppable.yul
-  python ./utils/yul_translator.py --yul ./examples/unstoppable-simplified/UnstoppableLender.yul
-  python ./utils/yul_translator.py --yul ./examples/unstoppable-simplified/ERC20.yul
-  
-  # puppet
-  python ./utils/yul_translator.py --yul ./examples/puppet-simplified/PuppetPool.yul
-  python ./utils/yul_translator.py --yul ./examples/puppet-simplified/ERC20.yul
-  python ./utils/yul_translator.py --yul ./examples/puppet-simplified/UniswapModel.yul
-  ```
+```bash
+# compile to YUL
+solc ./examples/puppet-simplified/PuppetPool.sol --ir --overwrite -o ./examples/puppet-simplified
+solc ./examples/puppet-simplified/ERC20.sol --ir --overwrite -o ./examples/puppet-simplified
+solc ./examples/puppet-simplified/UniswapModel.sol --ir --overwrite -o ./examples/puppet-simplified
+```
 
-- Pre-process the Yul code and generated parsed json and config:
+And prepare the YUL files as inputs to Eurus:
 
-  ```bash
-  python ./utils/yul_parser.py --yul ./examples/interface-test/Server.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/interface-test/Client.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/collection-test/MyMapping1.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/require-test/ReqTest1.eurus.yul
-  
-  # unstoppable
-  python ./utils/yul_parser.py --yul ./examples/unstoppable-simplified/ReceiverUnstoppable.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/unstoppable-simplified/UnstoppableLender.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/unstoppable-simplified/ERC20.eurus.yul
-  
-  # puppet
-  python ./utils/yul_parser.py --yul ./examples/puppet-simplified/PuppetPool.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/puppet-simplified/ERC20.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/puppet-simplified/UniswapModel.eurus.yul
-  ```
+```bash
+# enhance YUL
+python ./utils/yul_translator.py --yul ./examples/puppet-simplified/PuppetPool.yul
+python ./utils/yul_translator.py --yul ./examples/puppet-simplified/ERC20.yul
+python ./utils/yul_translator.py --yul ./examples/puppet-simplified/UniswapModel.yul
 
-## Notes & Resources
+# parse YUL
+python ./utils/yul_parser.py --yul ./examples/puppet-simplified/PuppetPool.eurus.yul
+python ./utils/yul_parser.py --yul ./examples/puppet-simplified/ERC20.eurus.yul
+python ./utils/yul_parser.py --yul ./examples/puppet-simplified/UniswapModel.eurus.yul
+```
 
-- See [Notes & Resources](./NOTES.md) for details.
+Then you can run to test the demo synthesis procedure:
 
-## Known Issues & TODOs
+```bash
+racket ./demo-puppet.rkt
+```
 
-- ▢ Dispatcher calling with empty argument may cause a `take` error with less than 32 elements. Need to check and fix. Currently a temporary fix is applied.
-- ▢ You need a builtin ETH pool that handles builtin methods like `transfer` without a caller.
-- ▢ The `zhash` has a bug when setting a `constant` as a key. See the lifting strategies in the notes for more details. A solution is provided and should be propagated to the `zhash` implementation. But practically, keys to `zhash` can only be those symbolic values that are decomposible to concrete values. In other words, e.g., `constant` can not be a key.
-- ▢ Properly lift the memory management modules so that they provide APIs for symbolic memory access that works with `zhash`.
-- ✓ Replace `destruct` back to `match` with corresponding lifting to have better control of symbolic states.
-- ✓ Replace all `match` with `destruct`; before doing this, a Yul json should be parsed into structs, not pure lists.
+It will output the synthesized attack contract. Load it as `contracts/attacker-contracts/PuppetAttacker.sol` in the benchmarking framework (see [here](https://github.com/MrToph/damn-vulnerable-defi)) verify the hack.
 

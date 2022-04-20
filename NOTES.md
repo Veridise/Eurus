@@ -112,6 +112,7 @@ function copy_arguments_for_constructor_23_object_Client_42() -> ret_param_0 {
 - Solidity by Example - Interface: [https://solidity-by-example.org/interface/](https://solidity-by-example.org/interface/)
 - How does a constructor load inputs: [https://ethereum.stackexchange.com/questions/58866/how-does-a-contracts-constructor-work-and-load-input-values](https://ethereum.stackexchange.com/questions/58866/how-does-a-contracts-constructor-work-and-load-input-values)
   - [https://ethereum.stackexchange.com/questions/13008/how-are-the-arguments-of-the-constructor-encoded-in-the-contract-creation-transa](https://ethereum.stackexchange.com/questions/13008/how-are-the-arguments-of-the-constructor-encoded-in-the-contract-creation-transa)
+- Eth Interface: [https://ewasm.readthedocs.io/en/mkdocs/eth_interface/](https://ewasm.readthedocs.io/en/mkdocs/eth_interface/)
 
 ## Other Resources
 
