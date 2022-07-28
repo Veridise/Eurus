@@ -2,8 +2,7 @@
 grammar Yul;
 start : yul_object ;
 
-yul_object : KW_OBJECT yul_string_literal '{' ( yul_code yul_object? yul_data? ) '}' ;
-yul_data : KW_DATA yul_string_literal KW_HEX yul_string_literal ;
+yul_object : KW_OBJECT yul_string_literal '{' ( yul_code yul_object? ) '}' ;
 yul_code : KW_CODE yul_block ;
 yul_if : KW_IF yul_expression yul_block ;
 yul_switch : KW_SWITCH yul_expression ( yul_case+ yul_default? | yul_default ) ;
@@ -58,10 +57,6 @@ yul_identifier : ID_LITERAL ;
 
 KW_OBJECT : 'object' ;
 KW_CODE : 'code' ;
-// data is an extra keyword observed in 0.8.11
-KW_DATA : 'data' ;
-// hex is for the hex keyword following data observed in 0.8.11
-KW_HEX : 'hex' ;
 KW_IF : 'if' ;
 KW_SWITCH : 'switch' ;
 KW_CASE : 'case' ;

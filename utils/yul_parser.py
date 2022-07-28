@@ -33,14 +33,6 @@ class YulPrintListener(YulListener):
     def exitYul_object(self, ctx:YulParser.Yul_objectContext):
         self.built_string += "],"
 
-    # Enter a parse tree produced by YulParser#yul_data.
-    def enterYul_data(self, ctx:YulParser.Yul_dataContext):
-        self.built_string += "[\"yul_data\","
-
-    # Exit a parse tree produced by YulParser#yul_data.
-    def exitYul_data(self, ctx:YulParser.Yul_dataContext):
-        self.built_string += "],"
-
     # Enter a parse tree produced by YulParser#yul_code.
     def enterYul_code(self, ctx:YulParser.Yul_codeContext):
         self.built_string += "[\"yul_code\","

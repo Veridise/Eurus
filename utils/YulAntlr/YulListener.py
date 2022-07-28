@@ -26,15 +26,6 @@ class YulListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by YulParser#yul_data.
-    def enterYul_data(self, ctx:YulParser.Yul_dataContext):
-        pass
-
-    # Exit a parse tree produced by YulParser#yul_data.
-    def exitYul_data(self, ctx:YulParser.Yul_dataContext):
-        pass
-
-
     # Enter a parse tree produced by YulParser#yul_code.
     def enterYul_code(self, ctx:YulParser.Yul_codeContext):
         pass
