@@ -5,11 +5,9 @@
   </h1>
 </div>
 
-This is a development README.
+Eurus is an open-source general framework for smart contract verification and synthesis. Eurus performs reasoning using a builtin symbolic virtual machine based on the [YUL](https://docs.soliditylang.org/en/latest/yul.html) intermediate language from Solidity.
 
-There's a documentation/tutorial built by sphinx. You can access it [here](https://sites.cs.ucsb.edu/~yanju/misc/eurus/) or build it locally by yourself.
-
-Eurus is an edge version of [Venti@965703b](https://github.com/chyanju/Venti/tree/965703b370de796abd127be2a4c2cb5533eac296), specialized for DeFi applications.
+Eurus is still under active development. Please see different branches for history versions (e.g. demo version).
 
 ## Building from Docker
 
@@ -28,7 +26,7 @@ docker run -it --rm eurus:v0 bash
   - eth-abi: [https://github.com/ethereum/eth-abi](https://github.com/ethereum/eth-abi)
     - `pip install eth_abi==2.1.1`
     - This is for easy abi encoding.
-
+  
 - Racket (8.0+): [https://racket-lang.org/](https://racket-lang.org/)
   - Rosette (4.0+): [https://github.com/emina/rosette](https://github.com/emina/rosette)
     - `raco pkg install rosette`
@@ -42,9 +40,6 @@ docker run -it --rm eurus:v0 bash
   - Python Targets Setup: https://github.com/antlr/antlr4/blob/master/doc/python-target.md
   - `pip install antlr4-python3-runtime==4.8`
   - You also need antlr backend, for Ubuntu, run `sudo apt-get install antlr4`; for other systems, please check the Antlr homepage: [https://www.antlr.org/](https://www.antlr.org/)
-- CVC4: [https://cvc4.github.io/](https://cvc4.github.io/)
-  - Required for some tests.
-
 
 ## Python Yul Parser
 
@@ -63,7 +58,28 @@ optional arguments:
 
 It will automatically outputs `filename.json` and `filename.config.json` in the same folder.
 
-## Useful Commands
+## Example Usage
+
+There are two sets of examples in `examples/` showing how to use Eurus to perform concrete and symbolic execution with verification performed. The `ex/` corresponds to the concrete reasoning part of Eurus, and the `symex/` corresponds to the symbolic reasoning part. To run them, you'll need to first prepare them by running:
+
+```bash
+cd examples/
+bash ./prepare-ex.sh
+# or:
+#   bash ./prepare-symex.sh
+```
+
+Then you can run different Eurus script to perform different tasks:
+
+```bash
+racket ./test-ex5.rkt
+# or:
+#   racket ./test-symex1.rkt
+```
+
+You can find out more details by reading `ex/ex.sol` and `symex/symex.sol`, as well as the `test-*.rkt` Eurus scripts. More documentations are on the way. For detailed steps, please see the "Other Commands" section.
+
+## Other Commands
 
 - Automatically generate the core Yul parser:
 
@@ -77,15 +93,8 @@ It will automatically outputs `filename.json` and `filename.config.json` in the 
   ```bash
   # ex (examples)
   solc ./examples/ex/ex.sol --ir --overwrite -o ./examples/ex
-  # harness
-  cd ./examples/harness
-  solc ./Harness.sol --ir --overwrite -o ./
-  solc ./ERC20.sol --ir --overwrite -o ./
-  # jury
-  cd ./examples/jury
-  solc ./Airdrop.sol --ir --overwrite -o ./
   ```
-  
+
 - Translate original Yul to Eurus Yul:
 
   ```bash
@@ -94,13 +103,8 @@ It will automatically outputs `filename.json` and `filename.config.json` in the 
   python ./utils/yul_translator.py --yul ./examples/ex/ex1.yul
   python ./utils/yul_translator.py --yul ./examples/ex/ex2.yul
   python ./utils/yul_translator.py --yul ./examples/ex/ex3.yul
-  # harness
-  python ./utils/yul_translator.py --yul ./examples/harness/Harness.yul
-  python ./utils/yul_translator.py --yul ./examples/harness/ERC20.yul
-  # jury
-  python ./utils/yul_translator.py --yul ./examples/jury/Airdrop.yul
   ```
-  
+
 - Pre-process the Yul code and generated parsed json and config:
 
   ```bash
@@ -109,20 +113,13 @@ It will automatically outputs `filename.json` and `filename.config.json` in the 
   python ./utils/yul_parser.py --yul ./examples/ex/ex1.eurus.yul
   python ./utils/yul_parser.py --yul ./examples/ex/ex2.eurus.yul
   python ./utils/yul_parser.py --yul ./examples/ex/ex3.eurus.yul
-  # harness
-  python ./utils/yul_parser.py --yul ./examples/harness/Harness.eurus.yul
-  python ./utils/yul_parser.py --yul ./examples/harness/ERC20.eurus.yul
-  # jury
-  python ./utils/yul_parser.py --yul ./examples/jury/Airdrop.eurus.yul
   ```
 
 - run test script
 
   ```bash
-  racket -l errortrace -t ./test-parallel0.rkt
+  racket ./test-ex5.rkt
   ```
-
-## Other Commands
 
 - External ABI Encoding
 
@@ -141,22 +138,3 @@ It will automatically outputs `filename.json` and `filename.config.json` in the 
   ```bash
   python ./utils/keccak256.py "fun(uint256,bool)"
   ```
-
-## Notes & Resources
-
-- Compile Sphinx documentations: `make clean html`
-- Replace all `pragma` versions
-  - Linux: `grep -Irl oldtext . | xargs sed -i 's/oldtext/newtext/g'`
-  - Mac: `grep -Irl 0.8.10 . | xargs sed -i "" -e 's/0.8.10/0.8.13/g'`
-- Default Addresses
-  - "attacker": `0x97154a62cd5641a577e092d2eee7e39fcb3333dc`
-  - "admin": `0xf23ec0bb4210edd5cba85afd05127efcd2fc6a78`
-  - others are computed via [https://emn178.github.io/online-tools/keccak_256.html](https://emn178.github.io/online-tools/keccak_256.html) with name and take the first 40 characters (20bytes out of 32bytes, or 160bits out of 256bits).
-- See [Notes & Resources](./NOTES.md) for details.
-- [https://emn178.github.io/online-tools/keccak_256.html](https://emn178.github.io/online-tools/keccak_256.html)
-- [https://ethsum.netlify.app/](https://ethsum.netlify.app/)
-
-## Known Issues & TODOs
-
-- Library address issue / `linkersymbol`.
-- Consider changing some `bitvector->integer` to `bitvector->natural`.
