@@ -25,6 +25,12 @@
     [transfer transfer]
 
     [setup setup]
+
+    ; synthesis related wrapper
+    [collect-synth collect-synth]
+
+    ; external command wrapper
+    [eurus-prepare-folder eurus-prepare-folder]
 ))
 
 ; verbose setting
@@ -284,4 +290,35 @@
         (cons "contract-path" yul-path)
         (cons "config" vm-config)
     )))
+)
+
+; =========================================== ;
+; ======== synthesis related wrapper ======== ;
+; =========================================== ;
+; this collects all necessary information for synthesis
+(define (collect-synth) (make-hash))
+
+; ============================================================ ;
+; ======== external command wrapper (to be optimized) ======== ;
+; ============================================================ ;
+(define (eurus-prepare-folder path)
+    (when curr-verbose
+        (printf "# [env] preparing folder...\n"))
+    (define q (path->string (build-path "./" "eurus-prepare-folder.sh")))
+    (define-values (sp out in err)
+        ; (note) use `apply` to expand the last argument
+        (apply subprocess #f #f #f (find-executable-path "bash") q (list path))
+    )
+    (define out-str (port->string out))
+    (define err-str (port->string err))
+    (close-input-port out)
+    (close-output-port in)
+    (close-input-port err)
+    (subprocess-wait sp)
+    (if (zero? (subprocess-status sp))
+        (when curr-verbose
+            (printf "# [env] done.\n"))
+        (tokamak:exit "[env] eurus-prepare-folder script error.\noutput message is:\n~a\nerror message is:\n~a\n"
+            out-str err-str)
+    )
 )

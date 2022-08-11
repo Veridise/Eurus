@@ -1,6 +1,6 @@
-#lang racket
+#lang rosette
 (require json
-    (prefix-in env: "../eurus/racket/env.rkt")
+    (prefix-in env: "../eurus/rosette/env.rkt")
 )
 
 ; turn on verbose

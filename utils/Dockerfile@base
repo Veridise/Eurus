@@ -66,9 +66,12 @@ RUN pip install pysha3==1.0.2 && \
     pip install solc-select && \
     pip install antlr4-python3-runtime==4.8
 
-# install and select solc 0.8.13
-RUN solc-select install 0.8.13 && \
-    solc-select use 0.8.13
+# install and select solc 0.8.14 and cvc4
+RUN solc-select install 0.8.14 && \
+    solc-select use 0.8.14 && \
+    wget https://github.com/CVC4/CVC4/releases/download/1.8/cvc4-1.8-x86_64-linux-opt && \
+    mv ./cvc4-1.8-x86_64-linux-opt /usr/local/bin/cvc4 && \
+    chmod +x /usr/local/bin/cvc4
 
 # racket and rosette and other racket packages
 ARG DEBIAN_FRONTEND=noninteractive

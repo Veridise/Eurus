@@ -13,9 +13,10 @@ class YulTranslator:
             "hijack_dispatcher_revert", "hijack_dispatcher_miss",
             # eurus series
             "hijack_eurus_prank_once",
-            "hijack_eurus_assume", "hijack_eurus_assert", "hijack_eurus_says", 
-            "hijack_eurus_symbolic_uintX", "hijack_eurus_symbolic_intX", 
+            "hijack_eurus_assume", "hijack_eurus_assert", "hijack_eurus_says",
+            "hijack_eurus_symbolic_uintX", "hijack_eurus_symbolic_intX",
             "hijack_eurus_symbolic_address", "hijack_eurus_symbolic_bool",
+            "hijack_eurus_synthesize",
             # rosette series
             "hijack_rosette_assume", "hijack_rosette_assert", "hijack_rosette_cex", "hijack_rosette_solve",
         ]
@@ -100,6 +101,25 @@ class YulTranslator:
             r"\5" + "\n" +\
             r"\6" + "// adapted by Eurus: hijack_eurus_assert\n" +\
             r"\6" + "eurus_assert(" + r"\7" + ", sub(" + r"\8" + ", " + r"\9" + "), " + r"\4" + ")\n" +\
+            r"\g<10>" + "\n" +\
+            r"\1" + "}\n"
+            , yul_str
+        )
+        return new_str
+
+    def _t_hijack_eurus_synthesize(self, yul_str):
+        pattern0 = re.compile(
+            r"( *)function fun_eurus_synthesize_(.*?)\((.*?), (.*?)\) {\n" +\
+            r"(.*?)\n" +\
+            r"( *)revert\((.*?), sub\((.*?), (.*?)\)\)\n" +\
+            r"(.*?)\n" +\
+            r"\1}\n"
+            , re.DOTALL)
+        new_str = pattern0.sub(
+            r"\1" + "function fun_eurus_synthesize_" + r"\2" + "(" + r"\3" + ", " + r"\4" + ") {\n" +\
+            r"\5" + "\n" +\
+            r"\6" + "// adapted by Eurus: hijack_eurus_synthesize\n" +\
+            r"\6" + "eurus_synthesize(" + r"\7" + ", sub(" + r"\8" + ", " + r"\9" + "), " + r"\4" + ")\n" +\
             r"\g<10>" + "\n" +\
             r"\1" + "}\n"
             , yul_str

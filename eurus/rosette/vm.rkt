@@ -1459,6 +1459,17 @@
                 ; <======
             ))
 
+            (hash-set! yul-builtin-function-book "eurus_synthesize" (lambda (cp rs pm s n x)
+                ; ======> racket version
+                ; (tokamak:exit "[~a:rosette:solve] symbolic utilities not supported in racket mode." vm-nickname)
+                ; <======
+                ; ======> racket version
+                (define ret0 (solve (assert (bitvector->bool x))))
+                (printf "> [~a:eurus:synthesize] ~a\n~a\n" vm-nickname (eurus-extract-simple-string s n) ret0)
+                (comp:ret 'normal null)
+                ; <======
+            ))
+
             (hash-set! yul-builtin-function-book "eurus_prank_once" (lambda (cp rs pm addr)
                 ; (printf "> [~a] eurus_prank_once: ~a\n" vm-nic addr)
                 (printf "> [~a:eurus:prank_once] ~a\n" vm-nickname addr)
@@ -1538,7 +1549,7 @@
             ))
 
             ; s: start memory location of tag, n: size, x: condition
-            (hash-set! yul-builtin-function-book "rosette_solve" (lambda (cp rs pm s n x) 
+            (hash-set! yul-builtin-function-book "rosette_solve" (lambda (cp rs pm s n x)
                 ; ======> racket version
                 ; (tokamak:exit "[~a:rosette:solve] symbolic utilities not supported in racket mode." vm-nickname)
                 ; <======

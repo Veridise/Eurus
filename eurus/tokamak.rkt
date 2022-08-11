@@ -18,7 +18,7 @@
 ; used for forced break out of the execution
 (define (println-and-exit msg . fmts)
     (printf "[tokamak:exit] ~a\n" (apply format (cons msg fmts)))
-    (error "tokamak:exit")
+    ; (error "tokamak:exit")
     ; (printf "[trace] ~a\n" (trace msg)) ; (fixme) this is wrong, but only used to print the trace
     ; (printf "~a\n" (trace (current-namespace)))
     ; (error 'failed)

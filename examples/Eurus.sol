@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity >=0.8.13;
 
 contract Eurus {
 
     constructor() {}
 
+    // ======== common debugging utilities ======== //
     // set the msg.sender to addr for the upcoming function for ONCE
     function eurus_prank_once(address addr) internal pure { revert("eurus_prank_once"); }
+    // simply print something
+    function eurus_says(string memory tag) internal pure { revert(tag); }
 
+    // ======== common symbolic utilititess ======== //
     // symbolic address (not supported for now)
     function eurus_symbolic_address(string memory tag) internal pure returns (address) { revert(tag); }
-
     // symbolic bool: uint256 in YUL
     function eurus_symbolic_bool(string memory tag) internal pure returns (bool) { revert(tag); }
-
     // symbolic uint series: all in YUL are bv256
     function eurus_symbolic_uint256(string memory tag) internal pure returns (uint256) { revert(tag); }
     function eurus_symbolic_uint248(string memory tag) internal pure returns (uint248) { revert(tag); }
@@ -48,7 +50,6 @@ contract Eurus {
     function eurus_symbolic_uint16(string memory tag) internal pure returns (uint16) { revert(tag); }
     function eurus_symbolic_uint8(string memory tag) internal pure returns (uint8) { revert(tag); }
     function eurus_symbolic_uint(string memory tag) internal pure returns (uint) { revert(tag); }
-
     // symbolic int series: all in YUL are bv256
     function eurus_symbolic_int256(string memory tag) internal pure returns (int256) { revert(tag); }
     function eurus_symbolic_int248(string memory tag) internal pure returns (int248) { revert(tag); }
@@ -84,21 +85,22 @@ contract Eurus {
     function eurus_symbolic_int8(string memory tag) internal pure returns (int8) { revert(tag); }
     function eurus_symbolic_int(string memory tag) internal pure returns (int) { revert(tag); }
 
-
+    // ======== eurus verification utilities ======== //
     // same as rosette's assume: adding cond to verification conditions
     function eurus_assume(string memory tag, bool cond) internal pure { revert(tag); }
-
     // solving for a counterexample, i.e., (solve (! cond))
     // (optional) if no counterexample is found, add cond to assume
     function eurus_assert(string memory tag, bool cond) internal pure { revert(tag); }
 
-    // simply print something
-    function eurus_says(string memory tag) internal pure { revert(tag); }
+    // ======== eurus synthesis utilities ======== //
+    // eurus synthesis
+    // function eurus_attack(string memory tag, bool cond) internal pure { revert(tag); }
+    function eurus_synthesize(string memory tag, bool cond) internal pure { revert(tag); }
 
-    // rosette debugging utilities
+    // ======== rosette debugging utilities ======== //
     function rosette_assume(string memory tag, bool cond) internal pure { revert(tag); } // rosette's assume
     function rosette_assert(string memory tag, bool cond) internal pure { revert(tag); } // rosette's assert
     function rosette_cex(string memory tag, bool cond) internal pure { revert(tag); } // solve for a counter example, that is, (solve (! cond))
     function rosette_solve(string memory tag, bool cond) internal pure { revert(tag); } // solve for a solution, that is, (solve cond)
-    
+
 }

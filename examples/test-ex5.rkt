@@ -1,8 +1,3 @@
-; #lang racket
-; (require json
-;     (prefix-in env: "../eurus/racket/env.rkt")
-; )
-
 #lang rosette
 (require json
     (prefix-in env: "../eurus/rosette/env.rkt")
