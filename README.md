@@ -1,7 +1,7 @@
 <div align="left">
   <h1>
     <img src="./resources/eurus-white.png" width=50>
-  	Eurus - YUL Symbolic Virtual Machine
+  	Eurus - Precise Attack Synthesis for DeFi Apps
   </h1>
 </div>
 
