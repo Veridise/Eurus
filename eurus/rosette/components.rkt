@@ -10,6 +10,7 @@
 ;     - (note) this signal will propagate all the way back to the function node level
 ;   - 'return: set by the EVM dialect "return", END EXECUTION and return data to top level caller (?)
 ;   - 'revert: ???
+;   - 'synthesis: special return signal of synthesis call
 ; - values: the corresponding return values, a list (even for a single value it should be wrapped into a list)
 ;     - null: means whatever executed has side effects only and does not return anything
 (struct ret (mode values) #:mutable #:transparent #:reflection-name 'ret)

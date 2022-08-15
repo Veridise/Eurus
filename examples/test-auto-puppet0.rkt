@@ -65,4 +65,7 @@
 (env:call harness (env:@vm "ethToken") "constructor" ($ ))
 (env:call harness (env:@vm "uniswap") "constructor" ($ ))
 (env:call harness (env:@vm "pool") "constructor" ($ ))
-(env:call harness (env:@vm "harness") "attack" ($ ))
+(define sol (env:call harness (env:@vm "harness") "attack" ($ )))
+
+(printf "\n# Synthesized Attack:\n\n")
+(printf "~a\n" (synth:complete-sol sol))

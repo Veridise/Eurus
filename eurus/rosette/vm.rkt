@@ -36,6 +36,8 @@
 
             ; (fixme) stateful variables
             [last-returndata (list )] ; for modeling op such as `returndatasize` and `returndatacopy`
+            [init-timestamp (current-seconds)]
+            [is-revert-trigged #f]
         )
 
         ; ========================================== ;
@@ -95,7 +97,7 @@
                                     [else name0] ; name is not occupied
                                 )
                             )
-                            
+
                             ; set
                             (hash-set! vm-abimap key0 ent0)
                         ]
@@ -128,7 +130,7 @@
         (define/public (do-deploy arg-node #:arg-param [arg-param (comp:default-param)])
             (match arg-node
                 ; top-level entrance
-                [(yul:start m-object) 
+                [(yul:start m-object)
                     ; explicitly changing the code scope to 'constructor
                     ; process the constructor object
                     (do-deploy m-object #:arg-param (comp:copy-param arg-param #:code-scope 'constructor))
@@ -139,8 +141,8 @@
                 ; - m-dobj is the dispatcher
                 [(yul:cobj m-name m-code m-dobj)
                     ; remove the yul_function_definition from the constructor node
-                    (define c-code (yul:code (yul:block 
-                        (filter (lambda (x) (not (yul:fundef? (yul:statement-res x))) ) 
+                    (define c-code (yul:code (yul:block
+                        (filter (lambda (x) (not (yul:fundef? (yul:statement-res x))) )
                             (yul:block-statements (yul:code-block m-code))))))
 
                     ; set constructor node
@@ -160,8 +162,8 @@
                 ; - m-code is the dispatcher code
                 [(yul:dobj m-name m-code)
                     ; remove the yul_function_definition from the dispatcher node
-                    (define d-code (yul:code (yul:block 
-                        (filter (lambda (x) (not (yul:fundef? (yul:statement-res x))) ) 
+                    (define d-code (yul:code (yul:block
+                        (filter (lambda (x) (not (yul:fundef? (yul:statement-res x))) )
                             (yul:block-statements (yul:code-block m-code))))))
 
                     ; set dispatcher node
@@ -189,7 +191,7 @@
                                         ; dispatcher scope
                                         (hash-set! dispatcher-function-book v m) ; add the function entry node
                                     ]
-                                    [else (tokamak:exit "[~a:do-deploy] unsupported code-scope, got: ~a." 
+                                    [else (tokamak:exit "[~a:do-deploy] unsupported code-scope, got: ~a."
                                         vm-nickname (comp:param-code-scope arg-param))
                                     ]
                                 )
@@ -223,7 +225,7 @@
         (define/public (do-construct arg-callpack)
             ; use the default arg-rstack (an empty list, no stack)
             ; need to specify the code scope since it will be used to locate the function book
-            (interpret constructor-node 
+            (interpret constructor-node
                 #:arg-callpack arg-callpack
                 #:arg-param (comp:copy-param (comp:default-param) #:code-scope 'constructor))
         )
@@ -241,7 +243,7 @@
         )
 
         (define/public (do-dispatch arg-callpack)
-            (interpret dispatcher-node 
+            (interpret dispatcher-node
                 #:arg-callpack arg-callpack
                 #:arg-param (comp:copy-param (comp:default-param) #:code-scope 'dispatcher))
         )
@@ -260,21 +262,21 @@
         ; for delegatecall to library
         ; (note) you need param since you may inherit the block scope option
         (define/public (do-dispatch-with-context arg-callpack arg-rstack arg-param)
-            (interpret dispatcher-node 
+            (interpret dispatcher-node
                 #:arg-callpack arg-callpack
-                #:arg-rstack arg-rstack 
+                #:arg-rstack arg-rstack
                 #:arg-param (comp:copy-param (comp:default-param) #:code-scope 'dispatcher))
         )
 
         ; ============================================== ;
         ; ========== interpretation utilities ========== ;
         ; ============================================== ;
-        (define/public (call arg-node 
-                             #:arg-callpack [arg-callpack null] 
-                             #:arg-rstack [arg-rstack (list)] 
+        (define/public (call arg-node
+                             #:arg-callpack [arg-callpack null]
+                             #:arg-rstack [arg-rstack (list)]
                              #:arg-param [arg-param (comp:default-param)])
             ; first find the function in the corresponding function book
-            (define target-function-book 
+            (define target-function-book
                 (let ([tmp-code-scope (comp:param-code-scope arg-param)])
                     (cond
                         [(equal? 'constructor tmp-code-scope) constructor-function-book]
@@ -293,13 +295,13 @@
             ; (printf "[debug:~a] target-function-name is: ~a\n" vm-nickname target-function-name)
 
             (define tmp-ret
-                (cond 
+                (cond
                     ; it's a user defined function
-                    [(hash-has-key? target-function-book target-function-name) 
+                    [(hash-has-key? target-function-book target-function-name)
                         (define target-def-node (hash-ref target-function-book target-function-name))
-                        (define tmp-ret (do-user-call target-def-node arg-node 
+                        (define tmp-ret (do-user-call target-def-node arg-node
                             #:arg-callpack arg-callpack
-                            #:arg-rstack arg-rstack 
+                            #:arg-rstack arg-rstack
                             #:arg-param (comp:copy-param arg-param))
                         )
                         tmp-ret
@@ -307,9 +309,9 @@
                     ; it's a builtin function
                     [(hash-has-key? yul-builtin-function-book target-function-name)
                         (define target-function (hash-ref yul-builtin-function-book target-function-name))
-                        (define tmp-ret (do-builtin-call target-function arg-node 
+                        (define tmp-ret (do-builtin-call target-function arg-node
                             #:arg-callpack arg-callpack
-                            #:arg-rstack arg-rstack 
+                            #:arg-rstack arg-rstack
                             #:arg-param (comp:copy-param arg-param))
                         )
                         tmp-ret
@@ -324,18 +326,18 @@
         )
         ; calling a user defined function
         ; (note) this won't check the function name matching between the def-node and call-node, it assumes that they are matched already
-        (define/public (do-user-call arg-def-node arg-call-node 
-                                     #:arg-callpack [arg-callpack null] 
-                                     #:arg-rstack [arg-rstack (list)] 
+        (define/public (do-user-call arg-def-node arg-call-node
+                                     #:arg-callpack [arg-callpack null]
+                                     #:arg-rstack [arg-rstack (list)]
                                      #:arg-param [arg-param (comp:default-param)])
             ; first do the arity checking
             (define def-arg-ids (yul:fundef-args arg-def-node))
             (define def-ret-ids (yul:fundef-rets arg-def-node))
 
             (define call-arg-exprs (yul:funcall-expressions arg-call-node))
-            
+
             ; arity checking
-            (when (not (equal? (length def-arg-ids) (length call-arg-exprs))) 
+            (when (not (equal? (length def-arg-ids) (length call-arg-exprs)))
                 (tokamak:exit "[~a:do-user-call] arity mismatch for user function calls." vm-nickname))
 
             ; then evaluate the call args to get the final value first
@@ -367,12 +369,12 @@
             (define block-ret
                 (interpret def-block-node
                     #:arg-callpack arg-callpack
-                    #:arg-rstack (cons local-register arg-rstack) 
+                    #:arg-rstack (cons local-register arg-rstack)
                     #:arg-param (comp:copy-param arg-param #:new-block-scope #f)
                 )
             )
 
-            ; (note)(important)(fixme) the Yul syntax doesn't have an explicit return in a function block 
+            ; (note)(important)(fixme) the Yul syntax doesn't have an explicit return in a function block
             ;                          (there's one in EVM dialect but that one ends EXECUTION and return, which will directly return to the top level(?)),
             ;                          so here we need to actively return if the return list is not empty
             ; (fixme) don't know what to do if the return defined in function signature is different with the actual returned data from `return` call
@@ -382,7 +384,7 @@
                     ; nothing is defined (in the function signature) to return, then return the block-ret
                     block-ret
                     ; something to return, grab all of them from the local register
-                    (comp:ret (comp:ret-mode block-ret) (for/list ([xid def-ret-ids]) 
+                    (comp:ret (comp:ret-mode block-ret) (for/list ([xid def-ret-ids])
                         (call-read-rets local-register xid)
                     ))
                 )
@@ -392,9 +394,9 @@
             tmp-ret
         )
         ; calling a builtin function
-        (define/public (do-builtin-call arg-function arg-call-node 
-                                        #:arg-callpack [arg-callpack null] 
-                                        #:arg-rstack [arg-rstack (list)] 
+        (define/public (do-builtin-call arg-function arg-call-node
+                                        #:arg-callpack [arg-callpack null]
+                                        #:arg-rstack [arg-rstack (list)]
                                         #:arg-param [arg-param (comp:default-param)])
 
             (define call-arg-exprs (yul:funcall-expressions arg-call-node)) ; these are expressions and needs to be evaluated first
@@ -414,8 +416,8 @@
             (define call-arg-values (call-args-extraction call-arg-rets))
 
             ; then directly evaluate the function
-            (define tmp-ret (apply arg-function 
-                (append 
+            (define tmp-ret (apply arg-function
+                (append
                     (list arg-callpack arg-rstack arg-param)
                     call-arg-values
                 )
@@ -432,7 +434,7 @@
             ; arg-rets is call-arg-rets
             (for/list ([p arg-rets])
                 (let ([vs (comp:ret-values p)])
-                    (when (not (equal? 1 (length vs))) 
+                    (when (not (equal? 1 (length vs)))
                         (tokamak:exit "[~a:call-args-extraction] every call argument should evaluate to only 1 value." vm-nickname))
                     (list-ref vs 0)
                 )
@@ -471,24 +473,25 @@
             (let ([arg-curr-mode (comp:ret-mode arg-curr-ret)])
                 (cond
                     ; normal, just move and execute the next iteration
-                    [(equal? 'normal arg-curr-mode) 
+                    [(equal? 'normal arg-curr-mode)
                         (define tmp-curr-ret (if (comp:param-new-block-scope arg-param)
-                            (do-interpret arg-statement 
-                                #:arg-callpack arg-callpack 
-                                #:arg-rstack (cons arg-local-register arg-rstack) 
-                                #:arg-param (comp:copy-param arg-param)) ; standalone block, create a new scope
-                            (do-interpret arg-statement 
+                            (do-interpret arg-statement
                                 #:arg-callpack arg-callpack
-                                #:arg-rstack arg-rstack 
+                                #:arg-rstack (cons arg-local-register arg-rstack)
+                                #:arg-param (comp:copy-param arg-param)) ; standalone block, create a new scope
+                            (do-interpret arg-statement
+                                #:arg-callpack arg-callpack
+                                #:arg-rstack arg-rstack
                                 #:arg-param (comp:copy-param arg-param)) ; attached block, scope is managed by upper level, usually for function definition and loop
                         ))
                         tmp-curr-ret
-                    ] 
+                    ]
                     [(equal? 'continue arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
                     [(equal? 'break arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
                     [(equal? 'leave arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
                     [(equal? 'return arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
                     [(equal? 'revert arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
+                    [(equal? 'synthesis arg-curr-mode) arg-curr-ret] ; do nothing, keep the return mode
                     ; this usually means there are some implementation errors
                     [else (tokamak:exit "[~a:process-execute-block-statement] unknown return mode, got: ~v." vm-nickname arg-curr-mode)]
                 )
@@ -498,7 +501,7 @@
         ; write a list of values into corresponding slots of ids in stack
         (define (process-write-values-to-ids arg-vals arg-ids arg-rstack)
             ; make sure length of ids matches length of values
-            (when (not (equal? (length arg-ids) (length arg-vals))) 
+            (when (not (equal? (length arg-ids) (length arg-vals)))
                 (tokamak:exit "[~a:process-write-values-to-ids] arity mismatch in assignment." vm-nickname))
             ; assign each value to its corresponding id
             (for ([i (range (length arg-ids))])
@@ -511,7 +514,7 @@
         ; write a list of values into corresponding slots of ids in stack
         (define (process-make-values-to-ids arg-vals arg-ids arg-rstack)
             ; make sure length of ids matches length of values
-            (when (not (equal? (length arg-ids) (length arg-vals))) 
+            (when (not (equal? (length arg-ids) (length arg-vals)))
                 (tokamak:exit "[~a:process-make-values-to-ids] arity mismatch in assignment." vm-nickname))
             ; assign each value to its corresponding id
             (for ([i (range (length arg-ids))])
@@ -526,29 +529,29 @@
             (let ([v (car arg-values)] [hit #f] [curr-ret (comp:ret 'normal null)])
                 (for ([c0 (utils:rcons arg-default arg-cases)])
                     (when (not hit)
-                        (cond 
+                        (cond
                             [(yul:case? c0)
                                 ; case
-                                (define lret (do-interpret (yul:case-literal c0) 
+                                (define lret (do-interpret (yul:case-literal c0)
                                     #:arg-callpack arg-callpack
-                                    #:arg-rstack arg-rstack 
+                                    #:arg-rstack arg-rstack
                                     #:arg-param (comp:copy-param arg-param))) ; literal ret value
                                 ; (fixme) not checking arity here, assume it would be fine
                                 (when (equal? v (car (comp:ret-values lret)))
                                     ; hit
                                     (set! hit #t)
-                                    (set! curr-ret (do-interpret (yul:case-block c0) 
+                                    (set! curr-ret (do-interpret (yul:case-block c0)
                                         #:arg-callpack arg-callpack
-                                        #:arg-rstack arg-rstack 
+                                        #:arg-rstack arg-rstack
                                         #:arg-param (comp:copy-param arg-param)))
                                 )
                             ]
                             [(yul:default? c0)
                                 ; hit
                                 (set! hit #t)
-                                (set! curr-ret (do-interpret (yul:default-block c0) 
+                                (set! curr-ret (do-interpret (yul:default-block c0)
                                     #:arg-callpack arg-callpack
-                                    #:arg-rstack arg-rstack 
+                                    #:arg-rstack arg-rstack
                                     #:arg-param (comp:copy-param arg-param)))
                             ]
                             [else (tokamak:exit "[~a:process-execute-switch] unknown switch branch, got: ~a." vm-nickname c0)]
@@ -579,8 +582,8 @@
                         (for ([m m-statements])
                             (let ([curr-mode (comp:ret-mode curr-ret)] [curr-values (comp:ret-values curr-ret)])
                                 ; construct a ret instance
-                                (set! curr-ret 
-                                    (process-execute-block-statement 
+                                (set! curr-ret
+                                    (process-execute-block-statement
                                         m local-register (comp:ret curr-mode curr-values) arg-callpack arg-rstack arg-param
                                     )
                                 )
@@ -593,13 +596,13 @@
 
                 [(yul:assignment m-ids m-expression)
                     ; RHS of assignment, a ret object
-                    (define r-expression (do-interpret m-expression 
+                    (define r-expression (do-interpret m-expression
                         #:arg-callpack arg-callpack
-                        #:arg-rstack arg-rstack 
-                        #:arg-param (comp:copy-param arg-param))) 
+                        #:arg-rstack arg-rstack
+                        #:arg-param (comp:copy-param arg-param)))
                     (define r-values (comp:ret-values r-expression))
 
-                    ; LHS of assignment, a list of ids 
+                    ; LHS of assignment, a list of ids
                     ; (this can only be id, not tid, according to grammar)
                     (define ids
                         (for/list ([p m-ids])
@@ -618,32 +621,32 @@
 
                 [(yul:funcall m-id m-expressions)
                     ; transfer executionship to call for auto pilot
-                    (call arg-node 
+                    (call arg-node
                         #:arg-callpack arg-callpack
-                        #:arg-rstack arg-rstack 
+                        #:arg-rstack arg-rstack
                         #:arg-param (comp:copy-param arg-param))
                 ]
 
                 [(yul:if m-expression m-block)
                     ; RHS of assignment, a ret object
-                    (define r-expression (do-interpret m-expression 
+                    (define r-expression (do-interpret m-expression
                         #:arg-callpack arg-callpack
-                        #:arg-rstack arg-rstack 
+                        #:arg-rstack arg-rstack
                         #:arg-param (comp:copy-param arg-param)))
                     (define r-values (comp:ret-values r-expression))
 
                     ; make sure the expression only returns 1 value
-                    (when (not (equal? 1 (length r-values))) 
+                    (when (not (equal? 1 (length r-values)))
                         (tokamak:exit "[~a:yul:if] arity mismatch in if condition, should be 1." vm-nickname))
 
                     ; (note)(important) need to convert the condition to actual bool so that `if` can correctly pick up the branch condition
-                    (define tmp-ret 
+                    (define tmp-ret
                         (if (utils:bitvector->bool (car r-values))
                             ; true, go
                             ; delegate to block interpretation
-                            (do-interpret m-block 
+                            (do-interpret m-block
                                 #:arg-callpack arg-callpack
-                                #:arg-rstack arg-rstack 
+                                #:arg-rstack arg-rstack
                                 #:arg-param (comp:copy-param arg-param))
                             ; (note) there's no else in Yul
                             (comp:ret 'normal null)
@@ -655,14 +658,14 @@
 
                 [(yul:switch m-expression m-cases m-default)
                     ; switch condition, a ret object
-                    (define r-expression (do-interpret m-expression 
+                    (define r-expression (do-interpret m-expression
                         #:arg-callpack arg-callpack
-                        #:arg-rstack arg-rstack 
+                        #:arg-rstack arg-rstack
                         #:arg-param (comp:copy-param arg-param)))
                     (define r-values (comp:ret-values r-expression))
 
                     ; make sure the expression only returns 1 value
-                    (when (not (equal? 1 (length r-values))) 
+                    (when (not (equal? 1 (length r-values)))
                         (tokamak:exit "[~a:yul:switch] arity mismatch in switch condition, should be 1." vm-nickname))
 
                     (define tmp-ret (process-execute-switch r-values m-cases m-default arg-callpack arg-rstack arg-param))
@@ -675,21 +678,21 @@
                 [(yul:forloop m-init m-expression m-post m-body)
                     ; a for loop creates a new scope
                     (let* ([local-register (make-register)])
-                        (do-interpret m-init 
+                        (do-interpret m-init
                             #:arg-callpack arg-callpack
-                            #:arg-rstack (cons local-register arg-rstack) 
+                            #:arg-rstack (cons local-register arg-rstack)
                             #:arg-param (comp:copy-param arg-param #:new-block-scope #f))
 
-                        (define r-cond (do-interpret m-expression 
+                        (define r-cond (do-interpret m-expression
                             #:arg-callpack arg-callpack
-                            #:arg-rstack (cons local-register arg-rstack) 
+                            #:arg-rstack (cons local-register arg-rstack)
                             #:arg-param (comp:copy-param arg-param)))
                         (define r-values (comp:ret-values r-cond))
 
                         (define (do-forloop)
-                            (define r-cond (do-interpret m-expression 
+                            (define r-cond (do-interpret m-expression
                                 #:arg-callpack arg-callpack
-                                #:arg-rstack (cons local-register arg-rstack) 
+                                #:arg-rstack (cons local-register arg-rstack)
                                 #:arg-param (comp:copy-param arg-param)))
                             (define r-values (comp:ret-values r-cond))
                             (when (utils:bitvector->bool (car r-values))
@@ -700,12 +703,12 @@
                                     #:arg-param (comp:copy-param arg-param #:new-block-scope #f)))
                                 ; then interpret the post condition, only when mode is normal
                                 (let ([rb-mode (comp:ret-mode r-body)])
-                                    (cond 
+                                    (cond
                                         [(or (equal? 'normal rb-mode) (equal? 'continue rb-mode))
                                             ; evaluate the post block
-                                            (do-interpret m-post 
+                                            (do-interpret m-post
                                                 #:arg-callpack arg-callpack
-                                                #:arg-rstack (cons local-register arg-rstack) 
+                                                #:arg-rstack (cons local-register arg-rstack)
                                                 #:arg-param (comp:copy-param arg-param #:new-block-scope #f))
                                             ; recursive call again
                                             (do-forloop)
@@ -730,23 +733,23 @@
                 ; for variable declaration, the expression can be missing, which is different than assignment
                 [(yul:vardec m-ids m-expression)
 
-                    ; LHS of assignment, a list of ids 
+                    ; LHS of assignment, a list of ids
                     ; (this can only be id, not tid, according to grammar)
                     (define ids (for/list ([p m-ids]) (yul:id-res p)))
 
-                    (define r-expression 
+                    (define r-expression
                         (cond
                             [(null? m-expression) (comp:ret 'normal (for/list ([_ (length ids)]) (bv 0 256)))]
                             ; has expression, interpret it first
-                            [else (do-interpret m-expression 
+                            [else (do-interpret m-expression
                                 #:arg-callpack arg-callpack
-                                #:arg-rstack arg-rstack 
+                                #:arg-rstack arg-rstack
                                 #:arg-param (comp:copy-param arg-param))]
                         )
                     )
 
                     (define r-values (comp:ret-values r-expression))
-                    
+
                     ; make values to ids
                     (process-make-values-to-ids r-values ids arg-rstack)
 
@@ -766,27 +769,27 @@
 
                 ; (note) interpret always starts from yul_code on top, not yul_object
                 ; pass on
-                [(yul:code m-block) (do-interpret m-block 
-                    #:arg-callpack arg-callpack 
-                    #:arg-rstack arg-rstack 
-                    #:arg-param (comp:copy-param arg-param))]
-
-                ; pass on
-                [(yul:statement m) (do-interpret m 
-                    #:arg-callpack arg-callpack 
-                    #:arg-rstack arg-rstack 
-                    #:arg-param (comp:copy-param arg-param))]
-
-                ; pass on
-                [(yul:expression m) (do-interpret m 
-                    #:arg-callpack arg-callpack 
-                    #:arg-rstack arg-rstack 
-                    #:arg-param (comp:copy-param arg-param))]
-
-                ; pass on
-                [(yul:literal m m-type) (do-interpret m 
+                [(yul:code m-block) (do-interpret m-block
                     #:arg-callpack arg-callpack
-                    #:arg-rstack arg-rstack 
+                    #:arg-rstack arg-rstack
+                    #:arg-param (comp:copy-param arg-param))]
+
+                ; pass on
+                [(yul:statement m) (do-interpret m
+                    #:arg-callpack arg-callpack
+                    #:arg-rstack arg-rstack
+                    #:arg-param (comp:copy-param arg-param))]
+
+                ; pass on
+                [(yul:expression m) (do-interpret m
+                    #:arg-callpack arg-callpack
+                    #:arg-rstack arg-rstack
+                    #:arg-param (comp:copy-param arg-param))]
+
+                ; pass on
+                [(yul:literal m m-type) (do-interpret m
+                    #:arg-callpack arg-callpack
+                    #:arg-rstack arg-rstack
                     #:arg-param (comp:copy-param arg-param))]
 
                 [(yul:number m) (comp:ret 'normal (list (bv m 256)))]
@@ -797,7 +800,7 @@
                 ; (note) you need to convert string into bv
                 ;        since there's something like `add("string", 10)` in YUL
                 [(yul:string m)
-                    (comp:ret 'normal (list 
+                    (comp:ret 'normal (list
                         (utils:simple-encode-string m)
                     ))
                 ]
@@ -809,12 +812,12 @@
                 ; why? because there are also interpretable codes on the same level as function definitions
                 ; and when calling constructor, we are actually calling the interpret method, which should not "call" the function definition
                 [(yul:fundef m-id m-args m-rets m-block) (tokamak:exit "[~a:yul:fundef] you can't interpret a function definition." vm-nickname)]
-                
+
                 ; otherwise, exit right now for debugging, this is not supposed to appear
                 ; (note) yul:case is not a unit for interpretation, it's decomposed in yul:switch interpretation
                 [_ (tokamak:exit "[~a:do-interpret] unsupported node, got: ~a." vm-nickname (utils:struct-type arg-node))]
             )
-            
+
         )
 
         ; ================================================================== ;
@@ -965,44 +968,44 @@
             ))))
 
 
-            (hash-set! yul-builtin-function-book "eq" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "eq" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bool->bitvector (bveq x y))
             ))))
-            (hash-set! yul-builtin-function-book "add" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "add" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvadd x y)
             ))))
-            (hash-set! yul-builtin-function-book "sub" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "sub" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvsub x y)
             ))))
-            (hash-set! yul-builtin-function-book "mul" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "mul" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvmul x y)
             ))))
-            (hash-set! yul-builtin-function-book "div" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "div" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (if (bvzero? y) (bv 0 256) (bvudiv x y))
             ))))
-            (hash-set! yul-builtin-function-book "sdiv" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "sdiv" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (if (bvzero? y) (bv 0 256) (bvsdiv x y))
             ))))
-            (hash-set! yul-builtin-function-book "and" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "and" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvand x y)
             ))))
-            (hash-set! yul-builtin-function-book "or" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "or" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvor x y)
             ))))
             (hash-set! yul-builtin-function-book "not" (lambda (cp rs pm x) (comp:ret 'normal (list
                 (bvnot x)
             ))))
             ; (note) rosette semantics is a bit different than Yul's
-            (hash-set! yul-builtin-function-book "shr" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "shr" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvlshr y x)
             ))))
             ; (note) rosette semantics is a bit different than Yul's
-            (hash-set! yul-builtin-function-book "shl" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "shl" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bvshl y x)
             ))))
 
             ; (fixme) this may be wrong
-            (hash-set! yul-builtin-function-book "mod" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "mod" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (if (bvzero? y) (bv 0 256) (bvurem x y))
             ))))
 
@@ -1013,13 +1016,13 @@
             (hash-set! yul-builtin-function-book "lt" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bool->bitvector (bvult x y) 256)
             ))))
-            (hash-set! yul-builtin-function-book "gt" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "gt" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bool->bitvector (bvugt x y) 256)
             ))))
-            (hash-set! yul-builtin-function-book "slt" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "slt" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bool->bitvector (bvslt x y) 256)
             ))))
-            (hash-set! yul-builtin-function-book "sgt" (lambda (cp rs pm x y) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "sgt" (lambda (cp rs pm x y) (comp:ret 'normal (list
                 (bool->bitvector (bvsgt x y) 256)
             ))))
 
@@ -1028,7 +1031,7 @@
             ; see: https://docs.soliditylang.org/en/latest/yul.html#memoryguard
             (hash-set! yul-builtin-function-book "memoryguard" (lambda (cp rs pm x) (comp:ret 'normal (list
                 ; (bv 0 256)
-                ; don't return 0 the address may overlap with some fixed operations, 
+                ; don't return 0 the address may overlap with some fixed operations,
                 ; e.g., `finalize_allocation` overwrites address 64, which may overlap your first argument if you set guard to 0
                 ; (bv 1024 256) ; 0x400
                 ; (bv 65536 256) ; 0x10000
@@ -1050,7 +1053,10 @@
             ))))
             ; (fixme) I just return a random chain id, need to read the doc to properly model this
             (hash-set! yul-builtin-function-book "timestamp" (lambda (cp rs pm) (comp:ret 'normal (list
-                (bv 299 256)
+                (begin
+                    (set! init-timestamp (add1 init-timestamp))
+                    (bv init-timestamp 256)
+                )
             ))))
 
             ; (fixme)
@@ -1112,7 +1118,7 @@
                             (bitvector->natural (mhash-ref memory-book i0)))
                         ; <======
                     ))
-                    
+
                     (when (symbolic? l0)
                         (tokamak:exit "[~a:keccak256] symbolic index is not supported." vm-nickname))
 
@@ -1152,7 +1158,7 @@
                     wei
                 )
             ))))
-            (hash-set! yul-builtin-function-book "calldatasize" (lambda (cp rs pm) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "calldatasize" (lambda (cp rs pm) (comp:ret 'normal (list
                 (let ([cd (comp:callpack-calldata cp)])
                     (bv (length cd) 256)
                 )
@@ -1160,19 +1166,19 @@
             (hash-set! yul-builtin-function-book "calldataload" (lambda (cp rs pm x) (comp:ret 'normal (list
                 (let ([cd (comp:callpack-calldata cp)])
                     (let ([im (drop cd (bitvector->natural x))])
-                        (apply concat 
+                        (apply concat
                             (if (> (length im) 32)
                                 ; sufficient call data
                                 (take im 32)
                                 ; insufficient call data, take the list and complete to 32 bytes
-                                (append 
-                                    im 
+                                (append
+                                    im
                                     (for/list ([_ (range (- 32 (length im)))])
                                         (bv 0 8) ; call data is stored in memory, so this should use 8bit/1byte
                                     )
                                 )
                             )
-                            
+
                         )
                     )
                 )
@@ -1193,7 +1199,7 @@
                     )
                 )
             ))))
-            (hash-set! yul-builtin-function-book "returndatasize" (lambda (cp rs pm) (comp:ret 'normal (list 
+            (hash-set! yul-builtin-function-book "returndatasize" (lambda (cp rs pm) (comp:ret 'normal (list
                 (bv (length last-returndata) 256)
             ))))
             (hash-set! yul-builtin-function-book "returndatacopy" (lambda (cp rs pm t f s) (comp:ret 'normal (list
@@ -1370,13 +1376,14 @@
             ))))
 
             ; (fixme) intentionally undefined zone, relax as you develop
-            (hash-set! yul-builtin-function-book "revert" (lambda (cp rs pm s n) 
-                ; (note) in rosette mode, the path to this revert is cut, 
+            (hash-set! yul-builtin-function-book "revert" (lambda (cp rs pm s n)
+                ; (note) in rosette mode, the path to this revert is cut,
                 ;        unless it's translated to other specific types, e.g., eurus_dispatcher_revert
                 ; ======> racket version
                 ; (tokamak:exit "[~a:function:revert] message is: ~a." vm-nickname (eurus-extract-simple-string s n))
                 ; <======
                 ; ======> rosette version
+                (set! is-revert-trigged #t)
                 (assert #f)
                 ; <======
             ))
@@ -1410,7 +1417,7 @@
             ; ================================================= ;
 
             ; s: start memory location of tag, n: size
-            (hash-set! yul-builtin-function-book "eurus_says" (lambda (cp rs pm s n) 
+            (hash-set! yul-builtin-function-book "eurus_says" (lambda (cp rs pm s n)
                 (printf "> [~a:eurus:says] ~a.\n" vm-nickname (eurus-extract-simple-string s n))
                 (comp:ret 'normal null)
             ))
@@ -1460,14 +1467,11 @@
             ))
 
             (hash-set! yul-builtin-function-book "eurus_synthesize" (lambda (cp rs pm s n x)
-                ; ======> racket version
-                ; (tokamak:exit "[~a:rosette:solve] symbolic utilities not supported in racket mode." vm-nickname)
-                ; <======
-                ; ======> racket version
                 (define ret0 (solve (assert (bitvector->bool x))))
                 (printf "> [~a:eurus:synthesize] ~a\n~a\n" vm-nickname (eurus-extract-simple-string s n) ret0)
-                (comp:ret 'normal null)
-                ; <======
+                ; (comp:ret 'normal null)
+                ; (note) special: return the solution
+                (comp:ret 'synthesis ret0)
             ))
 
             (hash-set! yul-builtin-function-book "eurus_prank_once" (lambda (cp rs pm addr)
@@ -1513,7 +1517,7 @@
             ))
 
             ; s: start memory location of tag, n: size, x: condition
-            (hash-set! yul-builtin-function-book "rosette_assume" (lambda (cp rs pm s n x) 
+            (hash-set! yul-builtin-function-book "rosette_assume" (lambda (cp rs pm s n x)
                 ; ======> racket version
                 ; (tokamak:exit "[~a:rosette:assume] symbolic utilities not supported in racket mode." vm-nickname)
                 ; <======
@@ -1525,7 +1529,7 @@
             ))
 
             ; s: start memory location of tag, n: size, x: condition
-            (hash-set! yul-builtin-function-book "rosette_assert" (lambda (cp rs pm s n x) 
+            (hash-set! yul-builtin-function-book "rosette_assert" (lambda (cp rs pm s n x)
                 ; ======> racket version
                 ; (tokamak:exit "[~a:rosette:assert] symbolic utilities not supported in racket mode." vm-nickname)
                 ; <======
@@ -1537,7 +1541,7 @@
             ))
 
             ; s: start memory location of tag, n: size, x: condition
-            (hash-set! yul-builtin-function-book "rosette_cex" (lambda (cp rs pm s n x) 
+            (hash-set! yul-builtin-function-book "rosette_cex" (lambda (cp rs pm s n x)
                 ; ======> racket version
                 ; (tokamak:exit "[~a:rosette:cex] symbolic utilities not supported in racket mode." vm-nickname)
                 ; <======
